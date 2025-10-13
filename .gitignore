@@ -1,0 +1,17 @@
+# Ignored generated directories
+**/.ipynb_checkpoints
+**/__pycache__
+.vscode
+.hydra
+.ruff_cache
+
+# Ignored generated files
+*.pyc
+*.egg-info
+core.*
+*.log
+
+# Local files & directories
+weights/
+runs/
+imagenet_data/

@@ -1,0 +1,20 @@
+#pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+
+lpips
+accelerate
+einops
+safetensors
+
+# Metrics & Logs
+torchmetrics
+torcheval
+torch-fidelity
+dreamsim
+scikit-image
+tqdm
+matplotlib
+
+# Configs
+PyYAML
+omegaconf
+hydra-core

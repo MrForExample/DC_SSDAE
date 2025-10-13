@@ -1,0 +1,13 @@
+# @package _global_
+
+gan:
+  start_iter: 50_000
+
+  discriminator:
+    norm_fn: ada
+    n_layers: 4
+    trajectory: true
+
+losses:
+  gan_disc: 0.5
+  gan_train: 1.0
