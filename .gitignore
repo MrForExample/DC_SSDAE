@@ -15,3 +15,4 @@ core.*
 weights/
 runs/
 imagenet_data/
+raw_data/

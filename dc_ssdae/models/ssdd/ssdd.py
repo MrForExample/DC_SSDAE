@@ -15,6 +15,7 @@ from ...mutils.train_utils import init_weights
 from ..blocks.diag_gauss import DiagonalGaussianDistribution
 from ..model_utils import TrainStepResult
 from ..vq_encoder import VQEncoder
+from ..dc_encoder import DCEncoder
 from .uvit import UViTDecoder
 
 
@@ -28,14 +29,15 @@ class DC_SSDAE(nn.Module):
         trainer: Optional[Mapping] = None,
         sampler: Optional[Mapping] = None,
         trainer_type:str = "FM",
+        encoder_type: str = "vq",
         checkpoint: Optional[str] = None,
     ):
         super().__init__()
 
         ### Submodules ###
         self.encoder_train = encoder_train
-        self.encoder = self.make_encoder(encoder, encoder_checkpoint)
-        self.decoder = UViTDecoder.make(decoder)
+        self.encoder, z_dim = self.make_encoder(encoder, encoder_type, encoder_checkpoint)
+        self.decoder = UViTDecoder.make(decoder, z_dim=z_dim)
 
         ### Equilibrium Matching (EqM) or Flow Matching (FM) ###
         if trainer_type == "EqM":
@@ -48,23 +50,30 @@ class DC_SSDAE(nn.Module):
         ## Weights init ###
         self.init_weights(checkpoint=checkpoint)
 
-    def make_encoder(self, encoder, encoder_checkpoint):
+    def make_encoder(self, encoder, encoder_type, encoder_checkpoint):
+        z_dim = None
         if not isinstance(encoder, nn.Module):
             # Check if matches pattern f?c? with regex
             assert isinstance(encoder, str)
-            vqenc_cfg_re = r"^f(\d+)c(\d+)$"
-            vqenc_cfg_match = re.match(vqenc_cfg_re, encoder)
-            if vqenc_cfg_match:
-                patch_size = int(vqenc_cfg_match.group(1))
-                z_dim = int(vqenc_cfg_match.group(2))
-                encoder = VQEncoder.make(z_dim=z_dim, patch_size=patch_size, encoder_checkpoint=encoder_checkpoint)
+            enc_cfg_re = r"^f(\d+)c(\d+)$"
+            enc_cfg_match = re.match(enc_cfg_re, encoder)
+            if enc_cfg_match:
+                patch_size = int(enc_cfg_match.group(1))
+                z_dim = int(enc_cfg_match.group(2))
+                if encoder_type == "vq":
+                    enc_cls = VQEncoder
+                elif encoder_type == "dc":
+                    enc_cls = DCEncoder
+                else:
+                    raise ValueError(f"Invalid encoder type: {encoder_type}")
+                encoder = enc_cls.make(z_dim=z_dim, patch_size=patch_size, encoder_checkpoint=encoder_checkpoint)
             else:
                 raise ValueError(f"Invalid encoder config: {encoder}")
 
         if not self.encoder_train:
             freeze_model(encoder)
 
-        return encoder
+        return encoder, z_dim
 
     def init_weights(self, method="kaiming_normal", **kwargs):
         init_weights(self, method=method, **kwargs)
@@ -123,7 +132,7 @@ class DC_SSDAE(nn.Module):
 
             losses = {"diffusion": diff_loss}
             if encoded is not None and self.encoder_train:
-                losses["kl"] = encoded.kl().mean()
+                losses["kl"] = encoded.kl().mean().to(diff_loss.device)
 
             return TrainStepResult(
                 x0_gt=gt_x,

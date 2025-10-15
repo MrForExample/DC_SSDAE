@@ -5,6 +5,7 @@ from typing import Any, Dict, Mapping, Optional
 
 import torch
 import torch._dynamo.config
+from torch.nn.attention import SDPBackend, sdpa_kernel
 from accelerate import DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
@@ -101,6 +102,7 @@ class AutoencodingTasks:
 
     def setup_job_env(self):
         """Setup the job environment"""
+        os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # For easier debugging
         # Ensure working inside the run directory
         ensure_path(self.cfg.run_dir)
         os.chdir(self.cfg.run_dir)
@@ -403,18 +405,21 @@ class AutoencodingTasks:
             save_training_state(self.state, ckpt)
 
     def task_train(self):
+        torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
         # Start directly at state.cur_epoch (even if > 0)
         did_eval_last_epoch = False
-        while self.state.cur_epoch < self.cfg.training.epochs:
-            self._task_train_one_epoch()
+        with sdpa_kernel(SDPBackend.MATH):  # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
+            while self.state.cur_epoch < self.cfg.training.epochs:
+                self._task_train_one_epoch()
+                
+                # Evaluation
+                eval_now = (self.state.cur_epoch + 1) % self.cfg.training.eval_freq == 0
+                if eval_now:
+                    did_eval_last_epoch = True
+                    self.task_eval()
 
-            eval_now = (self.state.cur_epoch + 1) % self.cfg.training.eval_freq == 0
-            if eval_now:
-                did_eval_last_epoch = True
-                self.task_eval()
-
-            self.state.cur_epoch += 1
-            self._task_train_post_eval(did_eval_last_epoch)
+                self.state.cur_epoch += 1
+                self._task_train_post_eval(did_eval_last_epoch)
 
         # Ensure last eval
         if not did_eval_last_epoch:

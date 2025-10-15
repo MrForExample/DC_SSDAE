@@ -23,7 +23,7 @@ from torch.amp import autocast
 
 from .utils import get_same_padding, list_sum, resize, val2list, val2tuple
 from .act import build_act
-from .norm import TritonRMSNorm2d, build_norm
+from .norm import RMSNorm2d, build_norm
 
 __all__ = [
     "ConvLayer",
@@ -400,7 +400,7 @@ class CoordAttnModule(nn.Module):
         mip = max(8, inp // groups)
 
         self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
-        self.norm = TritonRMSNorm2d(mip)
+        self.norm = RMSNorm2d(mip)
         self.conv2 = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
         self.conv3 = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
         self.act = nn.SiLU(inplace=True)
@@ -833,8 +833,8 @@ class LiteMLA(nn.Module):
         )
         self.norm_qk = norm_qk
         if norm_qk:
-            self.norm_q = TritonRMSNorm2d(total_dim)
-            self.norm_k = TritonRMSNorm2d(total_dim)
+            self.norm_q = RMSNorm2d(total_dim)
+            self.norm_k = RMSNorm2d(total_dim)
         self.aggreg = nn.ModuleList(
             [
                 nn.Sequential(
@@ -1016,8 +1016,8 @@ class ReLULinearAttention(LiteMLA):
         )
         self.norm_qk = norm_qk
         if norm_qk:
-            self.norm_q = TritonRMSNorm2d(total_dim)
-            self.norm_k = TritonRMSNorm2d(total_dim)
+            self.norm_q = RMSNorm2d(total_dim)
+            self.norm_k = RMSNorm2d(total_dim)
 
         self.kernel_func = build_act(kernel_func, inplace=False)
 

@@ -244,17 +244,20 @@ class DreamSim(t_metrics.Metric):
         return self
 
 
-class CorrectedStructuralSimilarity(t_metrics.StructuralSimilarity):
-    """Fix SSIM implementation"""
+class CorrectedStructuralSimilarity(t_metrics.Metric):
+    """SSIM implementation"""
 
     ordering = Orderings.MAX
 
     def __init__(self, data_range, device=None) -> None:
         super().__init__(device=device)
+        
+        self._add_state("loss_sum", torch.tensor(0.0, device=self.device))
+        self._add_state("num_samples", torch.tensor(0, device=self.device))
 
         self.data_range = data_range
 
-    def update(self, x_gt: torch.Tensor, x_pred: torch.Tensor, **ingored):
+    def update(self, x_gt: torch.Tensor, x_pred: torch.Tensor, **ignored):
         """
         Update the metric state with new input.
         Ensure that the two sets of images have the same value range (ex. [-1, 1], [0, 1]).
@@ -282,10 +285,17 @@ class CorrectedStructuralSimilarity(t_metrics.StructuralSimilarity):
                 channel_axis=0,
                 data_range=self.data_range,
             )
-            self.mssim_sum += mssim
+            self.loss_sum += mssim
 
-        self.num_images += batch_size
+        self.num_samples += batch_size
+    
+    def compute(self):
+        return self.loss_sum / self.num_samples
 
+    def merge_state(self, metrics):
+        for m in metrics:
+            self.loss_sum += m.loss_sum.to(self.device)
+            self.num_samples += m.num_samples.to(self.device)
         return self
 
 

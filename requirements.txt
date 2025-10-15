@@ -1,9 +1,18 @@
+# pytorch 2.8.0+cu128
 #pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#pip install -U "triton-windows<3.5" 
+# Add C:\Program Files (x86)\Microsoft Visual Studio\<YEAR>\BuildTools\VC\Tools\MSVC\<VERSION>\bin\Hostx64\x64 to PATH to allow torch to find cl.exe
 
 lpips
 accelerate
+transformers
+diffusers
 einops
+schedulefree
 safetensors
+datasets
+huggingface_hub[cli]
+huggingface_hub[hf_xet]
 
 # Metrics & Logs
 torchmetrics
@@ -11,6 +20,7 @@ torcheval
 torch-fidelity
 dreamsim
 scikit-image
+tensorboard
 tqdm
 matplotlib
 

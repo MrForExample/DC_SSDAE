@@ -8,9 +8,7 @@ import torch
 import torch.nn as nn
 from safetensors.torch import load_file as safe_load_file
 
-from .optional_import import optional_import
-
-schedulefree = optional_import("schedulefree")
+import schedulefree
 
 from .main_utils import TaskState, ensure_path
 
@@ -266,6 +264,7 @@ def aggregate_losses(cfg, losses, error_on_nan=True):
                 raise ValueError(f"Loss {loss_name} is NaN (Losses: {losses})")
             else:
                 TaskState().accelerator.warning(f"Loss {loss_name} is NaN (Losses: {losses})")
+        
     sum_losses = torch.sum(torch.stack([loss_val * cfg.losses[loss_name] for loss_name, loss_val in losses.items()]))
 
     return sum_losses, losses

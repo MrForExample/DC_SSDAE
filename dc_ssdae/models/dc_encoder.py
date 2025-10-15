@@ -1,3 +1,5 @@
+# Code modified based on: https://github.com/dc-ai-projects/DC-Gen/blob/main/dc_gen/aecore/models/dc_ae.py 
+import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -27,9 +29,9 @@ from .nn.ops import (
     SoftmaxCrossAttention,
 )
 from .nn.utils import get_submodule_weights
+from .blocks.diag_gauss import DiagonalGaussianDistribution
 
 __all__ = ["DCAE", "dc_ae_f32c32", "dc_ae_f64c128", "dc_ae_f128c512"]
-
 
 @dataclass
 class EncoderConfig:
@@ -47,11 +49,55 @@ class EncoderConfig:
     out_act: Optional[str] = None
     out_block_type: str = "ConvLayer"
     out_shortcut: Optional[str] = "averaging"
-    double_latent: bool = False
-    
+    # We don't seem to need double_latent with KL loss, since as observed in experiments the mean and std converge to 0, 1 respectively as training progresses
+    # But keeping it here for faster convergence at the beginning of training
+    double_latent: bool = True 
     pretrained_path: Optional[str] = None
     pretrained_source: str = "dc-ae"
 
+def dc_ae_fc(pretrained_path: Optional[str] = None, f=64, c=128) -> EncoderConfig:
+    if f == 8:
+        cfg_str = (
+            f"latent_channels={c} "
+            "block_type=ResBlock out_shortcut=null "
+            "width_list=[128,256,512,512] depth_list=[0,5,10,4] "
+            "pretrained_source=dc-ae"
+        )
+    elif f == 16:
+        cfg_str = (
+            f"latent_channels={c} "
+            "block_type=ResBlock out_shortcut=null "
+            "width_list=[128,256,512,512,1024] depth_list=[0,5,10,4,4] "
+            "pretrained_source=dc-ae"
+        )
+    elif f == 32:
+        cfg_str = (
+            f"latent_channels={c} "
+            "block_type=ResBlock out_shortcut=null "
+            "width_list=[128,256,512,512,1024,1024] depth_list=[0,5,10,4,4,4] "
+            "pretrained_source=dc-ae"
+        )
+    elif f == 64:
+        cfg_str = (
+            f"latent_channels={c} "
+            "block_type=ResBlock out_shortcut=null "
+            "width_list=[128,256,512,512,1024,1024,1024] depth_list=[0,5,10,4,4,4,4] "
+            "pretrained_source=dc-ae"
+        )
+    elif f == 128:
+        cfg_str = (
+            f"latent_channels={c} "
+            "block_type=ResBlock out_shortcut=null "
+            "width_list=[128,256,512,512,1024,1024,1024,1024] depth_list=[0,5,10,4,4,4,4,4] "
+            "pretrained_source=dc-ae"
+        )
+    else:
+        raise NotImplementedError
+
+    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
+    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
+    cfg.pretrained_path = pretrained_path
+    return cfg
 
 def build_block(
     block_type: str, in_channels: int, out_channels: int, norm: Optional[str], act: Optional[str]
@@ -348,6 +394,8 @@ class DCEncoder(nn.Module):
             isinstance(cfg.block_type, list) and len(cfg.block_type) == num_stages
         )
         assert isinstance(cfg.norm, str) or (isinstance(cfg.norm, list) and len(cfg.norm) == num_stages)
+        
+        self.patch_size = 2 ** (num_stages - 1)
 
         self.project_in = build_encoder_project_in_block(
             in_channels=cfg.in_channels,
@@ -383,6 +431,18 @@ class DCEncoder(nn.Module):
             act=cfg.out_act,
             shortcut=cfg.out_shortcut,
         )
+
+        self.load_model(cfg.pretrained_path)
+        
+    @classmethod
+    def make(cls, z_dim, patch_size, encoder_checkpoint=None):
+        cfg = dc_ae_fc(pretrained_path=encoder_checkpoint, f=patch_size, c=z_dim)
+        return cls(cfg)
+    
+    def load_model(self, pretrained_path):
+        if pretrained_path is not None and os.path.isfile(pretrained_path):
+            state_dict = torch.load(pretrained_path, map_location="cpu", weights_only=True)["state_dict"]
+            self.load_state_dict(get_submodule_weights(state_dict, "encoder."))
 
     def get_trainable_modules(self) -> nn.Module:
         trainable_modules = nn.ModuleDict({})
@@ -437,178 +497,10 @@ class DCEncoder(nn.Module):
                 raise ValueError(f"latent_channels {latent_channels} is not supported")
         else:
             x = self.project_out(x)
+            
+        if self.cfg.double_latent:
+            x = DiagonalGaussianDistribution(x, deterministic=False)
+        else:
+            x = DiagonalGaussianDistribution(torch.cat([x, torch.zeros_like(x)], axis=1), deterministic=True)
+
         return x
-
-
-def load_model(encoder, pretrained_path):
-    state_dict = torch.load(pretrained_path, map_location="cpu", weights_only=True)["state_dict"]
-    encoder.load_state_dict(get_submodule_weights(state_dict, "encoder."))
-
-def dc_ae_fc(pretrained_path: Optional[str] = None, f=64, c=128) -> EncoderConfig:
-    if f == 32:
-        cfg_str = (
-            f"latent_channels={c} "
-            "block_type=ResBlock out_shortcut=null "
-            "width_list=[128,256,512,512,1024,1024] depth_list=[0,5,10,4,4,4] "
-            "pretrained_source=dc-ae"
-        )
-    elif f == 64:
-        cfg_str = (
-            f"latent_channels={c} "
-            "block_type=ResBlock out_shortcut=null "
-            "width_list=[128,256,512,512,1024,1024,1024] depth_list=[0,5,10,4,4,4,4] "
-            "pretrained_source=dc-ae"
-        )
-    elif f == 128:
-        cfg_str = (
-            f"latent_channels={c} "
-            "block_type=ResBlock out_shortcut=null "
-            "width_list=[128,256,512,512,1024,1024,1024,1024] depth_list=[0,5,10,4,4,4,4,4] "
-            "pretrained_source=dc-ae"
-        )
-    else:
-        raise NotImplementedError
-
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-def dc_ae_f32c32(name: str, pretrained_path: str) -> EncoderConfig:
-    if name in ["dc-ae-f32c32-in-1.0", "dc-ae-f32c32-in-1.0-256px", "dc-ae-f32c32-mix-1.0"]:
-        cfg_str = (
-            "latent_channels=32 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTGLU,EViTGLU,EViTGLU] "
-            "width_list=[128,256,512,512,1024,1024] depth_list=[0,4,8,2,2,2] "
-        )
-    elif name in ["dc-ae-f32c32-sana-1.0"]:
-        cfg_str = (
-            "latent_channels=32 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTS5GLU,EViTS5GLU,EViTS5GLU] "
-            "width_list=[128,256,512,512,1024,1024] depth_list=[2,2,2,3,3,3] "
-            "downsample_block_type=Conv "
-            "scaling_factor=0.41407"
-        )
-    elif name in ["dc-ae-f32c32-sana-1.1"]:
-        cfg_str = (
-            "latent_channels=32 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTS5GLU,EViTS5GLU,EViTS5GLU] "
-            "width_list=[128,256,512,512,1024,1024] depth_list=[2,2,2,3,3,3] "
-            "downsample_block_type=Conv "
-            "pretrained_source=dc-ae-train "
-            "scaling_factor=0.41407"
-        )
-    elif name in ["dc-ae-lite-f32c32-sana-1.1"]:
-        cfg_str = (
-            "latent_channels=32 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTS5GLU,EViTS5GLU,EViTS5GLU] "
-            "width_list=[128,256,512,512,1024,1024] depth_list=[2,2,2,3,3,3] "
-            "downsample_block_type=Conv "
-            "pretrained_source=dc-ae "
-            "scaling_factor=0.41407"
-        )
-    else:
-        raise NotImplementedError
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-
-def dc_ae_f64c128(name: str, pretrained_path: Optional[str] = None) -> EncoderConfig:
-    if name in ["dc-ae-f64c128-in-1.0", "dc-ae-f64c128-mix-1.0"]:
-        cfg_str = (
-            "latent_channels=128 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTGLU,EViTGLU,EViTGLU,EViTGLU] "
-            "width_list=[128,256,512,512,1024,1024,2048] depth_list=[0,4,8,2,2,2,2] "
-        )
-    else:
-        raise NotImplementedError
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-
-def dc_ae_f128c512(name: str, pretrained_path: Optional[str] = None) -> EncoderConfig:
-    if name in ["dc-ae-f128c512-in-1.0", "dc-ae-f128c512-mix-1.0"]:
-        cfg_str = (
-            "latent_channels=512 "
-            "block_type=[ResBlock,ResBlock,ResBlock,EViTGLU,EViTGLU,EViTGLU,EViTGLU,EViTGLU] "
-            "width_list=[128,256,512,512,1024,1024,2048,2048] depth_list=[0,4,8,2,2,2,2,2] "
-        )
-    else:
-        raise NotImplementedError
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-
-def dc_ae_f32_1_1(name: str, pretrained_path: str) -> EncoderConfig:
-    if name in [
-        "dc-ae-f32c128-1.1",
-        "dc-ae-f32c128-1.1-c16",
-        "dc-ae-f32c128-1.1-c32",
-        "dc-ae-f32c128-1.1-c48",
-        "dc-ae-f32c128-1.1-c64",
-        "dc-ae-f32c128-1.1-c80",
-        "dc-ae-f32c128-1.1-c96",
-        "dc-ae-f32c128-1.1-c112",
-    ]:
-        latent_channels = 128
-    else:
-        raise ValueError(f"model {name} is not supported")
-    cfg_str = (
-        f"latent_channels={latent_channels} "
-        "block_type=ResBlock out_shortcut=null "
-        "width_list=[128,256,512,512,1024,1024] depth_list=[0,5,10,4,4,4] "
-        "pretrained_source=dc-ae"
-    )
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-
-def dc_ae_f32_1_5(name: str, pretrained_path: str) -> EncoderConfig:
-    if name in [
-        "dc-ae-f32c128-1.5",
-        "dc-ae-f32c128-1.5-c16",
-        "dc-ae-f32c128-1.5-c32",
-        "dc-ae-f32c128-1.5-c48",
-        "dc-ae-f32c128-1.5-c64",
-        "dc-ae-f32c128-1.5-c80",
-        "dc-ae-f32c128-1.5-c96",
-        "dc-ae-f32c128-1.5-c112",
-    ]:
-        latent_channels = 128
-    else:
-        raise ValueError(f"model {name} is not supported")
-    cfg_str = (
-        f"latent_channels={latent_channels} "
-        "block_type=ResBlock out_shortcut=null "
-        "width_list=[128,256,512,512,1024,1024] depth_list=[0,5,10,4,4,4] out_block_type=AdaptiveOutputConvLayer "
-        "pretrained_source=dc-ae"
-    )
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
-
-
-def dc_ae_f64_1_5(name: str, pretrained_path: str) -> EncoderConfig:
-    if name in ["dc-ae-f64c128-1.5"]:
-        latent_channels = 128
-    else:
-        raise ValueError(f"model {name} is not supported")
-    cfg_str = (
-        f"latent_channels={latent_channels} "
-        "block_type=ResBlock out_shortcut=null "
-        "width_list=[128,256,512,512,1024,1024,1024] depth_list=[0,5,10,4,4,4,4] out_block_type=AdaptiveOutputConvLayer "
-        "pretrained_source=dc-ae"
-    )
-    cfg = OmegaConf.from_dotlist(cfg_str.split(" "))
-    cfg: EncoderConfig = OmegaConf.to_object(OmegaConf.merge(OmegaConf.structured(EncoderConfig), cfg))
-    cfg.pretrained_path = pretrained_path
-    return cfg
