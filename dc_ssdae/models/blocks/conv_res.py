@@ -35,11 +35,11 @@ class Downsample2D(nn.Module):
         use_conv: bool = False,
         out_channels: Optional[int] = None,
         padding: int = 1,
-        kernel_size=3,
-        norm_type=None,
-        eps=None,
-        elementwise_affine=None,
-        bias=True,
+        kernel_size: int = 3,
+        norm_type = None,
+        eps: float = 1e-5,
+        elementwise_affine: bool = True,
+        bias: bool = True,
     ):
         super().__init__()
         self.channels = channels
@@ -101,12 +101,12 @@ class Upsample2D(nn.Module):
         use_conv_transpose: bool = False,
         out_channels: Optional[int] = None,
         kernel_size: Optional[int] = None,
-        padding=1,
-        norm_type=None,
-        eps=None,
-        elementwise_affine=None,
-        bias=True,
-        interpolate=True,
+        padding: int = 1,
+        norm_type = None,
+        eps: float = 1e-5,
+        elementwise_affine: bool = True,
+        bias: bool = True,
+        interpolate: bool = True,
     ):
         super().__init__()
         self.channels = channels
@@ -176,7 +176,7 @@ class DownBlock2D(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        temb_channels: int,
+        temb_channels: Optional[int] = None,
         dropout: float = 0.0,
         num_layers: int = 1,
         resnet_eps: float = 1e-5,
@@ -241,7 +241,7 @@ class UpBlock2D(nn.Module):
         in_channels: int,
         prev_output_channel: int,
         out_channels: int,
-        temb_channels: int,
+        temb_channels: Optional[int] = None,
         resolution_idx: Optional[int] = None,
         dropout: float = 0.0,
         num_layers: int = 1,

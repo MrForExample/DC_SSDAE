@@ -81,7 +81,7 @@ class FlowMatchingTrainer:
 
 
 class FMEulerSampler:
-    def __init__(self, steps=None, t_pow_shift=2.0):
+    def __init__(self, steps=None, t_pow_shift=4.0):
         self.default_steps = steps
         self.t_pow_shift = t_pow_shift
 

@@ -408,7 +408,9 @@ class AutoencodingTasks:
         torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
         # Start directly at state.cur_epoch (even if > 0)
         did_eval_last_epoch = False
-        with sdpa_kernel(SDPBackend.MATH):  # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
+        # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
+        # Use SDPBackend.CUDNN_ATTENTION for NVIDIA Hopper architectures (e.g., H100 GPUs), SDPBackend.FLASH_ATTENTION for NVIDIA Ampere architectures (e.g., A100 GPUs)
+        with sdpa_kernel(SDPBackend.MATH):  
             while self.state.cur_epoch < self.cfg.training.epochs:
                 self._task_train_one_epoch()
                 

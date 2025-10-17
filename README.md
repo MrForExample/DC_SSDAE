@@ -10,6 +10,7 @@ pip install triton
 
 ### Training
 ```bash
+accelerate launch dc_ssdae/main.py run_name=train_enc_f8c4 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
 accelerate launch dc_ssdae/main.py run_name=train_enc_f32c32 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
 accelerate launch dc_ssdae/main.py run_name=train_enc_f64c32 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
 ```

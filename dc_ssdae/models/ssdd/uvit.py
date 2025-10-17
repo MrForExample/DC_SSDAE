@@ -37,6 +37,7 @@ class UViTDecoder(nn.Module):
         num_attention_heads: Optional[int] = None,
         dropout=0.0,
         norm_num_groups=32,
+        use_time_embedding=True,
         time_scale_shift=True,
         mid_nlayers=12,
         mid_theta=100.0,
@@ -66,12 +67,18 @@ class UViTDecoder(nn.Module):
         super().__init__()
 
         ### Input ###
-        self.conv_in = nn.Conv2d(in_channels + z_dim, channels, kernel_size=3, padding=1)
+        self.conv_in_img = nn.Conv2d(in_channels, channels // 2, kernel_size=3, padding=1)
+        self.conv_in_z = nn.Conv2d(z_dim, channels // 2, kernel_size=3, padding=1)
+        self.conv_in = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
 
         ### Time ###
-        time_embed_dim = channels * 4
-        self.time_proj = Timesteps(channels, flip_sin_to_cos=True, downscale_freq_shift=0)
-        self.time_embedding = TimestepEmbedding(channels, time_embed_dim, act_fn=act_fn)
+        self.use_time_embedding = use_time_embedding
+        if use_time_embedding:
+            time_embed_dim = channels * 4
+            self.time_proj = Timesteps(channels, flip_sin_to_cos=True, downscale_freq_shift=0)
+            self.time_embedding = TimestepEmbedding(channels, time_embed_dim, act_fn=act_fn)
+        else:
+            time_embed_dim = None
 
         ### AdaNorm Embedding ###
         if ada_norm:
@@ -193,7 +200,7 @@ class UViTDecoder(nn.Module):
         t_emb = self.time_proj(timesteps).to(dtype=sample.dtype)
         return t_emb
 
-    def forward(self, x, t, z):
+    def forward(self, x, z, t=None):
         # t=0.0 -> no noise ; t=1.0 -> full noise
 
         ### Prepare input ###
@@ -201,6 +208,8 @@ class UViTDecoder(nn.Module):
         # Concat with z and project
         z_expanded = torch.nn.functional.interpolate(z, size=(x.shape[-2], x.shape[-1]), mode="nearest")
 
+        x = self.conv_in_img(x)
+        z_expanded = self.conv_in_z(z_expanded)
         x = torch.cat([x, z_expanded], dim=1)
         x = self.conv_in(x)
 
@@ -211,8 +220,11 @@ class UViTDecoder(nn.Module):
         ### Forward pass ###
 
         # 1. Time embedding
-        t_emb = self.get_time_embed(sample=x, timestep=t)
-        t_emb = self.time_embedding(t_emb, None)
+        if t is not None and self.use_time_embedding:
+            t_emb = self.get_time_embed(sample=x, timestep=t)
+            t_emb = self.time_embedding(t_emb, None)
+        else:
+            t_emb = None
 
         # 2. Down blocks
         down_block_res = [x]

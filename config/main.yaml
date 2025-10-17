@@ -44,17 +44,16 @@ dc_ssdae:
   compile: false  # Set to true if you have triton installed (Linux only)
   checkpoint: null
 
-  encoder: f64c32 # f8c4 f16c8 f32c16 f32c32, f64c32, f128c64
+  encoder: f32c32 # f8c4 f16c8 f32c16 f32c32, f64c32, f128c64
   encoder_checkpoint: null  # path to pretrained encoder checkpoint
   encoder_train: false
   decoder: S
 
-  trainer_type: FM  # Equilibrium Matching (EqM) or Flow Matching (FM)
+  trainer_type: EqM  # Equilibrium Matching (EqM) or Flow Matching (FM)
   encoder_type: dc  # vq or dc
 
   sampler:
     steps: 10
-    t_pow_shift: 4.0
 
   ema:
     decay: 0.999

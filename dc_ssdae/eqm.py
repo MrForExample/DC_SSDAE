@@ -13,7 +13,7 @@ class EquilibriumMatchingTrainer:
         self,
         *,
         c_type: str = 'trunc',  # 'linear', 'trunc', 'piece'
-        c_args={'grad_scale': 4.0, 'a': 0.8, 'b': 1.4}
+        c_args={'grad_scale': 1.0, 'a': 0.8, 'b': 1.4}
     ):
         self.prediction_type = None
         self.gamma_sampler = GammaSamplerLogitNormal()
@@ -29,7 +29,8 @@ class EquilibriumMatchingTrainer:
     
     def c(self, gamma):
             if self.c_type == 'linear':
-                return 1.0 - gamma
+                grad_scale = self.c_args.get('grad_scale', 4)
+                return grad_scale * (1.0 - gamma)
             elif self.c_type == 'trunc':
                 a = self.c_args.get('a', 0.8)
                 grad_scale = self.c_args.get('grad_scale', 4)
@@ -54,7 +55,7 @@ class EquilibriumMatchingTrainer:
         target = (noise - x) * self.c(gamma).view(*s)
 
         loss = ((grad_pred.float() - target.float()) ** 2).mean()
-        return loss, (x_g, noise, gamma, grad_pred)
+        return loss, (x_g, noise, 1.0 - gamma, grad_pred)
 
     def get_prediction(
         self,
@@ -64,16 +65,22 @@ class EquilibriumMatchingTrainer:
     ):
         return fn(x_g, **(fn_kwargs or {}))
 
-    def step(self, x_g, grad_pred, step_size):
+    def step(self, x_g, grad_pred, step_size, grad_sample=False):
         if not isinstance(grad_pred, torch.Tensor):
             grad_pred = torch.tensor(grad_pred, device=x_g.device)
-        next_xt = x_g - grad_pred * step_size   # standard SGD
+        
+        step_size = step_size.reshape((-1,) + (1,) * (x_g.dim() - 1))
+        if grad_sample:   # standard SGD step
+            next_xt = x_g - grad_pred * step_size
+        else:   # Used to predict x0 directly, convert to the same as Flow Matching
+            gamma = 1.0 - step_size
+            next_xt = x_g - grad_pred / self.c(gamma) * step_size
 
         return next_xt
 
 
 class EqMEulerSampler:
-    def __init__(self, steps=None):
+    def __init__(self, steps=None, **kwargs):
         self.default_steps = steps
 
     @torch.compiler.disable(recursive=False)
@@ -82,7 +89,7 @@ class EqMEulerSampler:
         fn,
         eqm_trainer,
         shape,
-        step_size = 0.125,
+        step_size=0.125,
         steps=None,
         fn_kwargs=None,
         noise=None,
@@ -104,5 +111,5 @@ class EqMEulerSampler:
                     x_g=x_g,
                     fn_kwargs=fn_kwargs,
                 )
-                x_g = eqm_trainer.step(x_g, grad_pred, step_size)
+                x_g = eqm_trainer.step(x_g, grad_pred, step_size, grad_sample=True)
         return x_g

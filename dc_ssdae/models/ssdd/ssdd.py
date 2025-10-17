@@ -34,18 +34,22 @@ class DC_SSDAE(nn.Module):
     ):
         super().__init__()
 
-        ### Submodules ###
-        self.encoder_train = encoder_train
-        self.encoder, z_dim = self.make_encoder(encoder, encoder_type, encoder_checkpoint)
-        self.decoder = UViTDecoder.make(decoder, z_dim=z_dim)
-
         ### Equilibrium Matching (EqM) or Flow Matching (FM) ###
         if trainer_type == "EqM":
             self.trainer = EquilibriumMatchingTrainer(**(trainer or {}))
             self.sampler = EqMEulerSampler(**(sampler or {}))
-        else:
+            use_time_embedding = False
+        elif trainer_type == "FM":
             self.trainer = FlowMatchingTrainer(**(trainer or {}))
             self.sampler = FMEulerSampler(**(sampler or {}))
+            use_time_embedding = True
+        else:
+            raise ValueError(f"Invalid trainer_type: {trainer_type}. Must be 'EqM' or 'FM'.")
+            
+        ### Submodules ###
+        self.encoder_train = encoder_train
+        self.encoder, z_dim = self.make_encoder(encoder, encoder_type, encoder_checkpoint)
+        self.decoder = UViTDecoder.make(decoder, z_dim=z_dim, use_time_embedding=use_time_embedding)
 
         ## Weights init ###
         self.init_weights(checkpoint=checkpoint)
