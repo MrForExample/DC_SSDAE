@@ -71,6 +71,7 @@ aux_losses:
 # === Training arguments ===
 
 training:
+  sdpa_kernel: 0 # 0: MATH, 1: FLASH_ATTENTION, 2: EFFICIENT_ATTENTION, 3: CUDNN_ATTENTION
   mixed_precision: bf16
   grad_accumulate: 1
   grad_clip: 0.1

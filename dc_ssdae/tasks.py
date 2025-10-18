@@ -410,7 +410,8 @@ class AutoencodingTasks:
         did_eval_last_epoch = False
         # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
         # Use SDPBackend.CUDNN_ATTENTION for NVIDIA Hopper architectures (e.g., H100 GPUs), SDPBackend.FLASH_ATTENTION for NVIDIA Ampere architectures (e.g., A100 GPUs)
-        with sdpa_kernel(SDPBackend.MATH):  
+        backend = SDPBackend(self.cfg.training.sdpa_kernel) if isinstance(self.cfg.training.sdpa_kernel, int) else SDPBackend.MATH
+        with sdpa_kernel(backend):
             while self.state.cur_epoch < self.cfg.training.epochs:
                 self._task_train_one_epoch()
                 

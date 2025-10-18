@@ -29,16 +29,16 @@ class EquilibriumMatchingTrainer:
     
     def c(self, gamma):
             if self.c_type == 'linear':
-                grad_scale = self.c_args.get('grad_scale', 4)
+                grad_scale = self.c_args.get('grad_scale', 1.0)
                 return grad_scale * (1.0 - gamma)
             elif self.c_type == 'trunc':
                 a = self.c_args.get('a', 0.8)
-                grad_scale = self.c_args.get('grad_scale', 4)
+                grad_scale = self.c_args.get('grad_scale', 1.0)
                 return grad_scale * torch.where(gamma > a, (1.0 - gamma) / (1.0 - a), torch.tensor(1.0, device=gamma.device))
             elif self.c_type == 'piece':
                 a = self.c_args.get('a', 0.8)
                 b = self.c_args.get('b', 1.4)
-                grad_scale = self.c_args.get('grad_scale', 4)
+                grad_scale = self.c_args.get('grad_scale', 1.0)
                 return grad_scale * torch.where(gamma > a, (1.0 - gamma) / (1.0 - a), b - (b - 1.0) * gamma / a)
             else:
                 raise ValueError(f"Unknown c_type: {self.c_type}")
