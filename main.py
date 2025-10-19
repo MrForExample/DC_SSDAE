@@ -15,7 +15,7 @@ lpips.normalize_tensor = _normalize_tensor
 
 def get_hydra_decorator():
     """Parse custom args for config_path and config_name."""
-    config_path = "../config"
+    config_path = "./config"
     config_name = "main"
     
     # Parse custom arguments
