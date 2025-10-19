@@ -10,9 +10,10 @@ pip install triton
 
 ### Training
 ```bash
-accelerate launch dc_ssdae/main.py run_name=train_enc_f8c4 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
-accelerate launch dc_ssdae/main.py run_name=train_enc_f32c32 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
-accelerate launch dc_ssdae/main.py run_name=train_enc_f64c32 dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true
+accelerate launch dc_ssdae/main.py run_name=train_enc_vq_f8c4_FM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=vq_f8c4_FM
+accelerate launch dc_ssdae/main.py run_name=train_enc_vq_f8c4_EqM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=vq_f8c4_EqM
+accelerate launch dc_ssdae/main.py run_name=train_enc_dc_f32c32_FM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=dc_f32c32_FM
+accelerate launch dc_ssdae/main.py run_name=train_enc_dc_f32c32_EqM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=dc_f32c32_EqM
 ```
 
 ### References

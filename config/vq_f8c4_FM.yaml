@@ -33,7 +33,7 @@ checkpoint_path: ${run_dir}/checkpoints
 dataset:
   imagenet_root: imagenet_data
   im_size: 128
-  batch_size: 4  # 256 for full training on 128x128 and 256x256
+  batch_size: 256  # 256 for full training on 128x128 and 256x256
   aug_scale: null
   limit: null
 
@@ -44,13 +44,13 @@ dc_ssdae:
   compile: false  # Set to true if you have triton installed (Linux only)
   checkpoint: null
 
-  encoder: f32c32 # f8c4 f16c8 f32c16 f32c32, f64c32, f128c64
+  encoder: f8c4 # f8c4, f16c16, f32c32, f32c64, f64c128, f64c256, f128c512, f128c1024
   encoder_checkpoint: null  # path to pretrained encoder checkpoint
   encoder_train: false
   decoder: S
 
-  trainer_type: EqM  # Equilibrium Matching (EqM) or Flow Matching (FM)
-  encoder_type: dc  # vq or dc
+  trainer_type: FM  # Equilibrium Matching (EqM) or Flow Matching (FM)
+  encoder_type: vq  # vq or dc
 
   sampler:
     steps: 10
@@ -71,7 +71,7 @@ aux_losses:
 # === Training arguments ===
 
 training:
-  sdpa_kernel: 0 # 0: MATH, 1: FLASH_ATTENTION, 2: EFFICIENT_ATTENTION, 3: CUDNN_ATTENTION
+  sdpa_kernel: 1 # 0: MATH, 1: FLASH_ATTENTION, 2: EFFICIENT_ATTENTION, 3: CUDNN_ATTENTION
   mixed_precision: bf16
   grad_accumulate: 1
   grad_clip: 0.1

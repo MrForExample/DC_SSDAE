@@ -1,0 +1,95 @@
+defaults:
+  - _self_
+  - override hydra/job_logging: colorlog
+
+hydra:
+  verbose: false
+  run:
+    dir: ${run_dir}
+  sweep:
+    dir: ${run_dir}
+    subdir: multirun_${hydra:job.num}
+  job_logging:
+    handlers:
+      file:
+        filename: ${hydra:runtime.output_dir}/${hydra:job.name}.log
+
+seed: 0
+task: train
+
+# === Paths ===
+runtime_path: ${hydra:runtime.cwd}
+ckpt_dir: ${runtime_path}/runs # HAS to be absolute
+run_name: ${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+cache_dir: ${ckpt_dir}/cache
+run_dir: ${ckpt_dir}/jobs/${run_name}
+checkpoint_path: ${run_dir}/checkpoints
+
+
+# === Dataset arguments ===
+
+
+dataset:
+  imagenet_root: imagenet_data
+  im_size: 128
+  batch_size: 256  # 256 for full training on 128x128 and 256x256
+  aug_scale: null
+  limit: null
+
+# === Model arguments ===
+
+distill_teacher: false
+dc_ssdae:
+  compile: false  # Set to true if you have triton installed (Linux only)
+  checkpoint: null
+
+  encoder: f8c4 # f8c4, f16c16, f32c32, f32c64, f64c128, f64c256, f128c512, f128c1024
+  encoder_checkpoint: null  # path to pretrained encoder checkpoint
+  encoder_train: false
+  decoder: S
+
+  trainer_type: EqM  # Equilibrium Matching (EqM) or Flow Matching (FM)
+  encoder_type: vq  # vq or dc
+
+  sampler:
+    steps: 10
+
+  ema:
+    decay: 0.999
+    start_iter: 50_000
+
+
+aux_losses:
+  compile: ${dc_ssdae.compile}
+  repa:
+    i_extract: 4
+    n_layers: 2
+  lpips: true
+
+
+# === Training arguments ===
+
+training:
+  sdpa_kernel: 1 # 0: MATH, 1: FLASH_ATTENTION, 2: EFFICIENT_ATTENTION, 3: CUDNN_ATTENTION
+  mixed_precision: bf16
+  grad_accumulate: 1
+  grad_clip: 0.1
+  epochs: 300
+  eval_freq: 1
+  save_on_best: FID
+  log_freq: 100
+
+  lr: 3e-4
+  weight_decay: 1e-3
+
+losses:
+  diffusion: 1
+  repa: 0.25
+  lpips: 0.5
+  kl: 1e-6
+
+
+# === Evaluation arguments ===
+
+show_samples: 8
