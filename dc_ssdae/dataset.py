@@ -15,7 +15,7 @@ class ImageNet(ImageFolder):
         split: str = "train",
         **kwargs: Any,
     ) -> None:
-        assert split in ["train", "val"]
+        assert split in ["train", "validation"]
         self.root = root
         self.split = split
 
@@ -58,7 +58,7 @@ def make_transform(is_train_split, im_size, aug_scale):
 
 def make_dataset_and_loader(is_train, *, imagenet_root, im_size, batch_size, aug_scale=None, limit=None):
     transform = make_transform(is_train, im_size=im_size, aug_scale=aug_scale)
-    dataset = ImageNet(os.path.join('..', '..', '..', imagenet_root), "train" if is_train else "val", transform=transform)
+    dataset = ImageNet(os.path.join('..', '..', '..', imagenet_root), "train" if is_train else "validation", transform=transform)
     if limit is not None:
         dataset = torch.utils.data.Subset(dataset, list(range(min(limit, len(dataset)))))
 

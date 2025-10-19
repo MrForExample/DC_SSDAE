@@ -1,18 +1,34 @@
 ## DC-SSDAE: Deep Compression Single-Step Diffusion Autoencoder
 
-### Install
+### Environment Setup
 ```bash
-# setup conda environment
-conda create 
-
-# pytorch 2.8.0+cu128
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 # On Linux
+sudo apt update
+sudo apt install gcc g++
+
+# setup conda environment
+# install Miniconda: 
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda-installer.sh
+bash miniconda-installer.sh
+# open Miniconda prompt
+source ~/.bashrc
+
+conda create --name DC_SSDAE python=3.12
+conda activate DC_SSDAE
+conda install nvidia/label/cuda-12.8.0::cuda-toolkit
+
+# clone this repo
+git clone https://github.com/MrForExample/DC_SSDAE.git
+
+# install dependencies
+pip install torch==2.9.0 torchvision==0.24.0 --index-url https://download.pytorch.org/whl/cu128
 pip install triton
+pip install -r requirements.txt
 
 # download & organize ImageNet-1k dataset
-hf download ILSVRC/imagenet-1k --repo-type dataset --local-dir /workspace/raw_data
-python dc_ssdae/download_imagenet_1k.py
+hf auth login
+hf download ILSVRC/imagenet-1k --repo-type dataset --local-dir /workspace/DC_SSDAE/raw_data
+python dc_ssdae/download_imagenet_1k.py --root_dir /workspace/DC_SSDAE
 ```
 
 ### Training

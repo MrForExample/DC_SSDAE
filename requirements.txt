@@ -13,6 +13,7 @@ safetensors
 datasets
 huggingface_hub[cli]
 huggingface_hub[hf_xet]
+hf_transfer
 
 # Metrics & Logs
 torchmetrics
