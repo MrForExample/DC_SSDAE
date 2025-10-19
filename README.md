@@ -2,10 +2,17 @@
 
 ### Install
 ```bash
+# setup conda environment
+conda create 
+
 # pytorch 2.8.0+cu128
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 # On Linux
 pip install triton
+
+# download & organize ImageNet-1k dataset
+hf download ILSVRC/imagenet-1k --repo-type dataset --local-dir /workspace/raw_data
+python dc_ssdae/download_imagenet_1k.py
 ```
 
 ### Training
