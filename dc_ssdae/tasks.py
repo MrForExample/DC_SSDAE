@@ -102,7 +102,10 @@ class AutoencodingTasks:
 
     def setup_job_env(self):
         """Setup the job environment"""
-        os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # For easier debugging
+        # For easier debugging
+        #os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
+        #torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
+        
         # Ensure working inside the run directory
         ensure_path(self.cfg.run_dir)
         os.chdir(self.cfg.run_dir)
@@ -405,7 +408,6 @@ class AutoencodingTasks:
             save_training_state(self.state, ckpt)
 
     def task_train(self):
-        torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
         # Start directly at state.cur_epoch (even if > 0)
         did_eval_last_epoch = False
         # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.

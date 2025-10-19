@@ -92,7 +92,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     
     # Process train and validation splits
-    #process_split(output_dir, raw_data_dir, 'train', max_images=MAX_TRAIN_IMAGES)
+    process_split(output_dir, raw_data_dir, 'train', max_images=MAX_TRAIN_IMAGES)
     process_split(output_dir, raw_data_dir, 'validation', max_images=MAX_VAL_IMAGES)
     
     print("Dataset download and saving complete.")
