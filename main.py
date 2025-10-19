@@ -4,7 +4,7 @@ import torch
 import sys
 from omegaconf import DictConfig
 
-from .tasks import AutoencodingTasks
+from dc_ssdae.tasks import AutoencodingTasks
 
 # Patching lpips loss to avoid NaN issues during training by increasing eps from 1e-10 to 1e-8
 def _normalize_tensor(in_feat, eps=1e-8):

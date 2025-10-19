@@ -33,6 +33,7 @@ python dc_ssdae/download_imagenet_1k.py --root_dir /workspace/DC_SSDAE
 
 ### Training
 ```bash
+# If you are training on a remote server, then use `nohup <accelerate cmd below>` & to prevents processes from being terminated when the terminal session is closed and run the command in the background
 accelerate launch dc_ssdae/main.py run_name=train_enc_vq_f8c4_FM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=vq_f8c4_FM
 accelerate launch dc_ssdae/main.py run_name=train_enc_vq_f8c4_EqM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=vq_f8c4_EqM
 accelerate launch dc_ssdae/main.py run_name=train_enc_dc_f32c32_FM dataset.im_size=128 dataset.aug_scale=2 training.lr=1e-4 dc_ssdae.encoder_train=true --config_name=dc_f32c32_FM
