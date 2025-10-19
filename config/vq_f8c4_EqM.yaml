@@ -33,7 +33,7 @@ checkpoint_path: ${run_dir}/checkpoints
 dataset:
   imagenet_root: imagenet_data
   im_size: 128
-  batch_size: 256  # 256 for full training on 128x128 and 256x256
+  batch_size: 192
   aug_scale: null
   limit: null
 
