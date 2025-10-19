@@ -29,3 +29,4 @@ matplotlib
 PyYAML
 omegaconf
 hydra-core
+hydra-colorlog
