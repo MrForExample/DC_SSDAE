@@ -408,30 +408,22 @@ class AutoencodingTasks:
             save_training_state(self.state, ckpt)
 
     def task_train(self):
-        # Start directly at state.cur_epoch (even if > 0)
-        did_eval_last_epoch = False
         # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
         # Use SDPBackend.CUDNN_ATTENTION for NVIDIA Hopper architectures (e.g., H100 GPUs), SDPBackend.FLASH_ATTENTION for NVIDIA Ampere architectures (e.g., A100 GPUs)
         # Use SDPBackend.MATH or SDPBackend.EFFICIENT_ATTENTION because we are using non-causal attention windowing masks
         backend = SDPBackend(self.cfg.training.sdpa_kernel) if isinstance(self.cfg.training.sdpa_kernel, int) else SDPBackend.MATH
         with sdpa_kernel(backend):
+            assert self.state.cur_epoch < self.cfg.training.epochs, f"self.cfg.training.epochs={self.cfg.training.epochs} already reached"
             while self.state.cur_epoch < self.cfg.training.epochs:
+                did_eval_last_epoch = False
                 self._task_train_one_epoch()
-                
-                # Evaluation
-                eval_now = (self.state.cur_epoch + 1) % self.cfg.training.eval_freq == 0
-                if eval_now:
-                    did_eval_last_epoch = True
-                    self.task_eval()
 
                 self.state.cur_epoch += 1
+                # Evaluation
+                if self.state.cur_epoch % self.cfg.training.eval_freq == 0 or self.state.cur_epoch == self.cfg.training.epochs:
+                    did_eval_last_epoch = True
+                    self.task_eval()
                 self._task_train_post_eval(did_eval_last_epoch)
-
-        # Ensure last eval
-        if not did_eval_last_epoch:
-            self.accelerator.print("Training stopped, final evaluation")
-            self.task_eval()
-            self._task_train_post_eval(did_eval_last_epoch)
 
     ##### Evaluation (task_eval) #####
 

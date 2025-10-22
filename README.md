@@ -22,7 +22,6 @@ git clone https://github.com/MrForExample/DC_SSDAE.git
 
 # install dependencies
 pip install torch==2.9.0 torchvision==0.24.0 --index-url https://download.pytorch.org/whl/cu128
-pip install triton
 pip install -r requirements.txt
 
 # download & organize ImageNet-1k dataset
