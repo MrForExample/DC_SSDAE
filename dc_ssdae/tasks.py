@@ -5,7 +5,6 @@ from typing import Any, Dict, Mapping, Optional
 
 import torch
 import torch._dynamo.config
-from torch.nn.attention import SDPBackend, sdpa_kernel
 from accelerate import DistributedDataParallelKwargs
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
@@ -103,8 +102,8 @@ class AutoencodingTasks:
     def setup_job_env(self):
         """Setup the job environment"""
         # For easier debugging
-        #os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
-        #torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
+        os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
+        torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
         
         # Ensure working inside the run directory
         ensure_path(self.cfg.run_dir)
@@ -408,22 +407,17 @@ class AutoencodingTasks:
             save_training_state(self.state, ckpt)
 
     def task_train(self):
-        # To avoid SDPBackend.EFFICIENT_ATTENTION RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
-        # Use SDPBackend.CUDNN_ATTENTION for NVIDIA Hopper architectures (e.g., H100 GPUs), SDPBackend.FLASH_ATTENTION for NVIDIA Ampere architectures (e.g., A100 GPUs)
-        # Use SDPBackend.MATH or SDPBackend.EFFICIENT_ATTENTION because we are using non-causal attention windowing masks
-        backend = SDPBackend(self.cfg.training.sdpa_kernel) if isinstance(self.cfg.training.sdpa_kernel, int) else SDPBackend.MATH
-        with sdpa_kernel(backend):
-            assert self.state.cur_epoch < self.cfg.training.epochs, f"self.cfg.training.epochs={self.cfg.training.epochs} already reached"
-            while self.state.cur_epoch < self.cfg.training.epochs:
-                did_eval_last_epoch = False
-                self._task_train_one_epoch()
+        assert self.state.cur_epoch < self.cfg.training.epochs, f"self.cfg.training.epochs={self.cfg.training.epochs} already reached"
+        while self.state.cur_epoch < self.cfg.training.epochs:
+            did_eval_last_epoch = False
+            self._task_train_one_epoch()
 
-                self.state.cur_epoch += 1
-                # Evaluation
-                if self.state.cur_epoch % self.cfg.training.eval_freq == 0 or self.state.cur_epoch == self.cfg.training.epochs:
-                    did_eval_last_epoch = True
-                    self.task_eval()
-                self._task_train_post_eval(did_eval_last_epoch)
+            self.state.cur_epoch += 1
+            # Evaluation
+            if self.state.cur_epoch % self.cfg.training.eval_freq == 0 or self.state.cur_epoch == self.cfg.training.epochs:
+                did_eval_last_epoch = True
+                self.task_eval()
+            self._task_train_post_eval(did_eval_last_epoch)
 
     ##### Evaluation (task_eval) #####
 
