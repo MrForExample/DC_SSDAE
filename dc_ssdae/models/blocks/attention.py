@@ -41,7 +41,6 @@ class Attention(nn.Module):
         out_bias: bool = True,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
-        is_causal: bool = False,
         rescale_output_factor: float = 1.0,
         residual_connection: bool = False,
     ):
@@ -60,7 +59,6 @@ class Attention(nn.Module):
             assert heads * dim_head == inner_dim
 
         # Args
-        self.is_causal = is_causal
         self.heads = heads
         self.inner_dim = inner_dim
         self.dim_head = dim_head
@@ -100,10 +98,10 @@ class Attention(nn.Module):
         if not self.training and self._cache_attn_mask is not None:
             # If eval and have cached attention mask, use it
             attention_mask = self._cache_attn_mask
-        elif attention_mask is not None:
-            attention_mask = self.prepare_attention_mask(attention_mask, sequence_length, batch_size)
-            # scaled_dot_product_attention expects attention_mask shape to be
-            attention_mask = attention_mask.view(batch_size, self.heads, -1, attention_mask.shape[-1])
+        #elif attention_mask is not None:
+        #    attention_mask = self.prepare_attention_mask(attention_mask, sequence_length, batch_size)
+        #    # scaled_dot_product_attention expects attention_mask shape to be
+        #    attention_mask = attention_mask.view(batch_size, self.heads, -1, attention_mask.shape[-1])
 
         query = self.to_q(hidden_states)
 
@@ -153,25 +151,9 @@ class Attention(nn.Module):
         # So we can only use SDPBackend.MATH if we are using sdpa_kernel because we are using non-causal attention windowing masks, but SDPBackend.MATH is very slow.
         # Thus we use FlexAttention inside the attention blocks instead.
         
-        # Replacement: Use flex_attention with custom score_mod for mask and causal handling
-        neg_inf = torch.tensor(-float(-1e5), dtype=torch.bfloat16).to(query.device)
-        if attn_mask is not None:
-            # score_mod adds mask_value from mask or applies -inf for masked positions
-            def score_mod(score, b, h, q_idx, kv_idx):
-                mask_value = attn_mask[b, h, q_idx, kv_idx]
-                return score + mask_value
-                #return torch.where(mask_value >= -1e4, score + mask_value, neg_inf)    # Threshold for detecting masked positions (based on -1e7 in RelativePositionBias)
-        elif self.is_causal:
-            # Causal masking without additional mask
-            def score_mod(score, b, h, q_idx, kv_idx):
-                return torch.cond(q_idx >= kv_idx, score, neg_inf)
-        else:
-            # No modification
-            score_mod = None
-        
         # Note: flex_attention does not natively support dropout; if self.attn_drop > 0, consider manual dropout on outputs or fallback to SDPA
         # For performance, optionally wrap in torch.compile(flex_attention)
-        return flex_attention(query, key, value, score_mod=score_mod)
+        return flex_attention(query, key, value, block_mask=attn_mask)
 
     def prepare_attention_mask(self, attention_mask: torch.Tensor, target_length: int, batch_size: int, out_dim: int = 3) -> torch.Tensor:
         r"""
