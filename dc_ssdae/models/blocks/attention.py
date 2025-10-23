@@ -11,7 +11,6 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.attention.flex_attention import flex_attention
 from einops import rearrange
 
 from .normalization import get_norm_layer
@@ -35,12 +34,14 @@ class Attention(nn.Module):
         dim_head: Optional[int] = None,
         out_dim: int = None,
         dropout: float = 0.0,
+        attn_drop: float = 0.0,
         bias: bool = False,
         qk_norm: Optional[str] = None,
         cross_attention_norm: Optional[str] = None,
         out_bias: bool = True,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
+        is_causal: bool = False,
         rescale_output_factor: float = 1.0,
         residual_connection: bool = False,
     ):
@@ -59,10 +60,12 @@ class Attention(nn.Module):
             assert heads * dim_head == inner_dim
 
         # Args
+        self.is_causal = is_causal
         self.heads = heads
         self.inner_dim = inner_dim
         self.dim_head = dim_head
         self.rescale_output_factor = rescale_output_factor
+        self.attn_drop = attn_drop
         self.residual_connection = residual_connection
 
         self.norm_q = get_norm_layer(qk_norm, dim_head, heads=heads, eps=eps, elementwise_affine=elementwise_affine)
@@ -98,10 +101,10 @@ class Attention(nn.Module):
         if not self.training and self._cache_attn_mask is not None:
             # If eval and have cached attention mask, use it
             attention_mask = self._cache_attn_mask
-        #elif attention_mask is not None:
-        #    attention_mask = self.prepare_attention_mask(attention_mask, sequence_length, batch_size)
-        #    # scaled_dot_product_attention expects attention_mask shape to be
-        #    attention_mask = attention_mask.view(batch_size, self.heads, -1, attention_mask.shape[-1])
+        elif attention_mask is not None:
+            attention_mask = self.prepare_attention_mask(attention_mask, sequence_length, batch_size)
+            # scaled_dot_product_attention expects attention_mask shape to be
+            attention_mask = attention_mask.view(batch_size, self.heads, -1, attention_mask.shape[-1])
 
         query = self.to_q(hidden_states)
 
@@ -145,15 +148,9 @@ class Attention(nn.Module):
         return hidden_states
 
     def _process_attn(self, query, key, value, attn_mask):
-        # Original: return F.scaled_dot_product_attention(query, key, value, attn_mask=attn_mask, dropout_p=self.attn_drop, is_causal=self.is_causal)
-        # Training using SDPBackend.EFFICIENT_ATTENTION will cause RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output.
-        # Use SDPBackend.CUDNN_ATTENTION for NVIDIA Hopper architectures (e.g., H100 GPUs), SDPBackend.FLASH_ATTENTION for NVIDIA Ampere architectures (e.g., A100 GPUs)
-        # So we can only use SDPBackend.MATH if we are using sdpa_kernel because we are using non-causal attention windowing masks, but SDPBackend.MATH is very slow.
-        # Thus we use FlexAttention inside the attention blocks instead.
-        
-        # Note: flex_attention does not natively support dropout; if self.attn_drop > 0, consider manual dropout on outputs or fallback to SDPA
-        # For performance, optionally wrap in torch.compile(flex_attention)
-        return flex_attention(query, key, value, block_mask=attn_mask)
+        return F.scaled_dot_product_attention(  # pylint: disable=not-callable
+            query, key, value, dropout_p=self.attn_drop, is_causal=self.is_causal
+        )
 
     def prepare_attention_mask(self, attention_mask: torch.Tensor, target_length: int, batch_size: int, out_dim: int = 3) -> torch.Tensor:
         r"""

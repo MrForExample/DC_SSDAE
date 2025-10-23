@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from omegaconf import OmegaConf
 
 from .nn.act import build_act
@@ -380,7 +381,6 @@ def build_decoder_project_out_block(
     else:
         raise ValueError(f"upsample factor {factor} is not supported for decoder project out")
     return OpSequential(layers)
-
 
 class DCEncoder(nn.Module):
     def __init__(self, cfg: EncoderConfig):

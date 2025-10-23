@@ -4,7 +4,6 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
-from torch.nn.attention.flex_attention import create_block_mask
 from einops import rearrange
 
 from .activations import get_linear_activation
@@ -175,9 +174,6 @@ class TransformerBlock(nn.Module):
         if relative_bias:
             self.relative_position_bias = RelativePositionBias(attn_window, num_attention_heads)
 
-        self.attn_window = attn_window
-        self.block_mask = None
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -196,18 +192,9 @@ class TransformerBlock(nn.Module):
             grid_size = int(N**0.5)
             attention_mask = self.relative_position_bias((B, grid_size, grid_size))
 
-            # Block mask
-            B, H, L, S = hidden_states.shape[0], self.attn1.heads, norm_hidden_states.shape[1], norm_hidden_states.shape[1]
-
-            def mask_mod(b, h, q_idx, kv_idx):
-                return abs(q_idx - kv_idx) <= self.attn_window // 2
-
-            if self.block_mask is None or self.block_mask.q_num_blocks != L:  # Recompute if shapes change
-                self.block_mask = create_block_mask(mask_mod, B=B, H=H, Q_LEN=L, KV_LEN=S, device=hidden_states.device)
-
         attn_output = self.attn1(
             norm_hidden_states,
-            attention_mask=self.block_mask,
+            attention_mask=attention_mask,
         )
         hidden_states = attn_output + hidden_states
 
