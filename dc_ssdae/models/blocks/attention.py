@@ -149,7 +149,7 @@ class Attention(nn.Module):
 
     def _process_attn(self, query, key, value, attn_mask):
         return F.scaled_dot_product_attention(  # pylint: disable=not-callable
-            query, key, value, dropout_p=self.attn_drop, is_causal=self.is_causal
+            query, key, value, attn_mask=attn_mask, dropout_p=self.attn_drop, is_causal=self.is_causal
         )
 
     def prepare_attention_mask(self, attention_mask: torch.Tensor, target_length: int, batch_size: int, out_dim: int = 3) -> torch.Tensor:

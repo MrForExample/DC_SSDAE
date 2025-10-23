@@ -70,6 +70,7 @@ class UViTDecoder(nn.Module):
         self.conv_in_img = nn.Conv2d(in_channels, channels // 2, kernel_size=3, padding=1)
         self.conv_in_z = nn.Conv2d(z_dim, channels // 2, kernel_size=3, padding=1)
         self.conv_in = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.batch_norm_z = nn.BatchNorm2d(z_dim)
 
         ### Time ###
         self.use_time_embedding = use_time_embedding
@@ -204,6 +205,8 @@ class UViTDecoder(nn.Module):
         # t=0.0 -> no noise ; t=1.0 -> full noise
 
         ### Prepare input ###
+        # Normalize z to avoid SDPBackend.EFFICIENT_ATTENTION `RuntimeError: Function 'ScaledDotProductEfficientAttentionBackward0' returned nan values in its 0th output`, indicated by large KL loss values.
+        z = self.batch_norm_z(z)
 
         # Concat with z and project
         z_expanded = torch.nn.functional.interpolate(z, size=(x.shape[-2], x.shape[-1]), mode="nearest")
