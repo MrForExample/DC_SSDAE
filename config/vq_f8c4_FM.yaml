@@ -33,7 +33,7 @@ checkpoint_path: ${run_dir}/checkpoints
 dataset:
   imagenet_root: imagenet_data
   im_size: 128
-  batch_size: 2
+  batch_size: 192
   aug_scale: null
   limit: null
 
