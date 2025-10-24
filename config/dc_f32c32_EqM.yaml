@@ -75,7 +75,7 @@ training:
   mixed_precision: bf16
   grad_accumulate: 1
   grad_clip: 0.1
-  epochs: 300
+  epochs: 200
   eval_freq: 1
   save_on_best: FID
   log_freq: 100
