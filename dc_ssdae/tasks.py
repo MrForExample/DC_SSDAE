@@ -103,8 +103,8 @@ class AutoencodingTasks:
     def setup_job_env(self):
         """Setup the job environment"""
         # For easier debugging
-        os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
-        torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
+        #os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  
+        #torch.autograd.set_detect_anomaly(True)	# Debug NaN / Inf in backward pass
         
         # Ensure working inside the run directory
         ensure_path(self.cfg.run_dir)
