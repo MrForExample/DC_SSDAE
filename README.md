@@ -1,6 +1,7 @@
 ## DC-SSDAE: Deep Compression Single-Step Diffusion Autoencoder
 The purpose of this project is to prove this architecture can work well among s-o-t-a VAE models, and offers a strong & stable codebase for other VAE researchers to build upon.
 ### 📜[DC-SSDAE Technical Report](https://mr-for-example.medium.com/dc-ssdae-deep-compression-single-step-diffusion-autoencoder-6d297e5e1a3b)
+### 🏋️‍♂️[Experiments Weights & Logs](https://huggingface.co/MrForExample/DC-SSDAE)
 
 ### Environment Setup
 ```bash
